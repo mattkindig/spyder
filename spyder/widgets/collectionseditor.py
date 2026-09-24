@@ -60,7 +60,7 @@ from spyder_kernels.utils.misc import fix_reference_name
 from spyder_kernels.utils.nsview import (
     display_to_value, get_human_readable_type, get_numeric_numpy_types,
     get_numpy_type_string, get_object_attrs, get_size, get_type_string,
-    sort_against, try_to_eval, unsorted_unique, value_to_display
+    sort_against, try_to_eval, unsorted_unique, value_to_display, is_namedtuple
 )
 
 # Local imports
@@ -227,6 +227,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         self.total_rows = None
         self.showndata = None
         self.keys = None
+        self.keystr = None
         self.title = str(title)  # in case title is not a string
         if self.title:
             self.title = self.title + ' - '
@@ -251,9 +252,15 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         self.showndata = data
 
         self.header0 = _("Index")
+        self.keystr = None
         if self.names:
             self.header0 = _("Name")
-        if isinstance(data, tuple):
+        if is_namedtuple(data):
+            self.keystr = dict(enumerate(data._fields))
+            self.keys = list(self.keystr.keys())
+            self.title += data.__class__.__name__
+            self.header0 = _("Field")
+        elif isinstance(data, tuple):
             self.keys = list(range(len(data)))
             self.title += _("Tuple")
         elif isinstance(data, list):
@@ -287,6 +294,10 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         else:
             data_type = get_type_string(data)
             self.title += data_type
+
+        if self.keystr is None: 
+            # set keystr to same as key, i.e. keystr[key]  == key
+            self.keystr = dict(zip(self.keys,self.keys))
 
         self.total_rows = len(self.keys)
         if self.total_rows > LARGE_NROWS:
@@ -490,7 +501,8 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
     def get_value(self, index):
         """Return current value"""
         if index.column() == 0:
-            return self.keys[index.row()]
+            key = self.keys[index.row()]
+            return self.keystr[key]
         elif index.column() == 1:
             return self.types[index.row()]
         elif index.column() == 2:
@@ -2022,6 +2034,9 @@ class CollectionsEditor(BaseDialog):
         if isinstance(data, (dict, set, frozenset)):
             # dictionary, set
             self.data_copy = data.copy()
+        elif is_namedtuple(data):
+            # copy namedtuple with another instance of the same type
+            self.data_copy = data.__class__(**data._asdict())
         elif isinstance(data, (tuple, list)):
             # list, tuple
             self.data_copy = data[:]
