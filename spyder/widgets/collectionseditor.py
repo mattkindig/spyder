@@ -27,6 +27,7 @@ import sys
 import textwrap
 from typing import Any, Callable, Optional
 import warnings
+from dataclasses import is_dataclass, replace as dataclass_replace
 
 # Third party imports
 from qtpy.compat import getsavefilename, to_qvariant
@@ -279,6 +280,12 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
             self.title += _("Dictionary")
             if not self.names:
                 self.header0 = _("Key")
+        elif is_dataclass(data):
+            self.keystr = dict(enumerate(data.__dataclass_fields__.keys()))
+            self.keys = list(range(len(self.keystr)))
+            self.title += data.__class__.__name__
+            self._data = list(getattr(data, key) for key in self.keystr.values())
+            self.header0 = _("Field")
         else:
             self.keys = get_object_attrs(data)
             self._data = data = self.showndata = ProxyObject(data)
@@ -2036,6 +2043,8 @@ class CollectionsEditor(BaseDialog):
         elif isinstance(data, (tuple, list)):
             # list, tuple
             self.data_copy = data[:]
+        elif is_dataclass(data):
+            self.data_copy = dataclass_replace(data)
         else:
             # unknown object
             import copy

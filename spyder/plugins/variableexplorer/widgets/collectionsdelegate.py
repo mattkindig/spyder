@@ -17,6 +17,7 @@ import operator
 import sys
 import traceback
 from typing import Any, Callable, Optional
+from dataclasses import is_dataclass
 
 # Third party imports
 from qtpy.compat import to_qvariant
@@ -218,6 +219,8 @@ class CollectionsDelegate(
         key = index.model().get_key(index)
         readonly = (isinstance(value, (tuple, set)) or self.parent().readonly
                     or not is_known_type(value))
+        collection = (isinstance(value, (list, set, frozenset, tuple, dict))
+                    or is_dataclass(value))
 
         # We can't edit Numpy void objects because they could be anything, so
         # this might cause a crash.
@@ -227,8 +230,7 @@ class CollectionsDelegate(
             return None
         # CollectionsEditor for a list, tuple, dict, etc.
         elif (
-            isinstance(value, (list, set, frozenset, tuple, dict))
-            and not object_explorer
+            collection and not object_explorer
         ):
             from spyder.widgets.collectionseditor import CollectionsEditor
             editor = CollectionsEditor(

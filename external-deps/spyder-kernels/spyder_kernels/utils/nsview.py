@@ -13,6 +13,7 @@ from itertools import islice
 import inspect
 import pathlib
 import re
+from dataclasses import is_dataclass
 
 from spyder_kernels.utils.lazymodules import (
     bs4, FakeObject, numpy as np, pandas as pd, PIL)
@@ -382,7 +383,7 @@ def value_to_display(value, minmax=False, level=0):
                     display = default_display(value)
             else:
                 display = 'Numpy array'
-        elif is_namedtuple(value):
+        elif is_namedtuple(value) or is_dataclass(value):
             display = repr(value)
         elif type(value) in [list, set, frozenset, tuple, dict]:
             display = collections_display(value, level+1)
