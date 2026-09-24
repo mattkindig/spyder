@@ -257,7 +257,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
             self.header0 = _("Name")
         if is_namedtuple(data):
             self.keystr = dict(enumerate(data._fields))
-            self.keys = list(self.keystr.keys())
+            self.keys = list(range(len(self.keystr)))
             self.title += data.__class__.__name__
             self.header0 = _("Field")
         elif isinstance(data, tuple):
@@ -294,10 +294,6 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         else:
             data_type = get_type_string(data)
             self.title += data_type
-
-        if self.keystr is None: 
-            # set keystr to same as key, i.e. keystr[key]  == key
-            self.keystr = dict(zip(self.keys,self.keys))
 
         self.total_rows = len(self.keys)
         if self.total_rows > LARGE_NROWS:
@@ -502,7 +498,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         """Return current value"""
         if index.column() == 0:
             key = self.keys[index.row()]
-            return self.keystr[key]
+            return key if self.keystr is None else self.keystr[key]
         elif index.column() == 1:
             return self.types[index.row()]
         elif index.column() == 2:
