@@ -27,7 +27,7 @@ import sys
 import textwrap
 from typing import Any, Callable, Optional
 import warnings
-from dataclasses import is_dataclass, replace as dataclass_replace
+from dataclasses import (is_dataclass, replace as dataclass_replace, fields as dataclass_fields)
 
 # Third party imports
 from qtpy.compat import getsavefilename, to_qvariant
@@ -281,10 +281,8 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
             if not self.names:
                 self.header0 = _("Key")
         elif is_dataclass(data):
-            self.keystr = dict(enumerate(data.__dataclass_fields__.keys()))
-            self.keys = list(range(len(self.keystr)))
-            self.title += data.__class__.__name__
-            self._data = list(getattr(data, key) for key in self.keystr.values())
+            self.keys  = list(field.name for field in dataclass_fields(data))
+            self._data = self.showndata = ProxyObject(data)
             self.header0 = _("Field")
         else:
             self.keys = get_object_attrs(data)

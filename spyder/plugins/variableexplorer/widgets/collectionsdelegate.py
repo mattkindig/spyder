@@ -218,7 +218,7 @@ class CollectionsDelegate(
 
         key = index.model().get_key(index)
         readonly = (isinstance(value, (tuple, set)) or self.parent().readonly
-                    or not is_known_type(value))
+                    or not is_known_type(value)) or is_dataclass(value)
         collection = (isinstance(value, (list, set, frozenset, tuple, dict))
                     or is_dataclass(value))
 
