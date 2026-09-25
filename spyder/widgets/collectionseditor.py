@@ -165,13 +165,24 @@ def natsort(s):
 class ProxyObject(object):
     """Dictionary proxy to an unknown object."""
 
-    def __init__(self, obj):
+    def __init__(self, obj, visible_keys=None):
         """Constructor."""
         self.__obj__ = obj
+        # Visible keys are those that can be retrieved and/or set.
+        # Store as dict for fast lookup
+        if visible_keys is None:
+            self.__keys__ = dict((key,None) for key in get_object_attrs(obj))
+        else:
+            self.__keys__ = dict((key,None) for key in visible_keys if hasattr(obj, key))
+
 
     def __len__(self):
-        """Get len according to detected attributes."""
-        return len(get_object_attrs(self.__obj__))
+        """Get len according to visible attributes."""
+        return len(self.__keys__)
+    
+    def keys(self):
+        """ Get list of visible attributes. """
+        return self.__keys__.keys()
 
     def __getitem__(self, key):
         """Get the attribute corresponding to the given key."""
@@ -184,6 +195,8 @@ class ProxyObject(object):
         # Catch ValueError to allow viewing and editing of pandas offsets.
         # Fix spyder-ide/spyder#6728-
         try:
+            if key not in self.__keys__:
+                raise AttributeError
             attribute_toreturn = getattr(self.__obj__, key)
         except (NotImplementedError, AttributeError, TypeError, ValueError):
             attribute_toreturn = None
@@ -196,6 +209,8 @@ class ProxyObject(object):
         # Fix spyder-ide/spyder#6728.
         # Also, catch NotImplementedError for safety.
         try:
+            if key not in self.__keys__:
+                raise AttributeError
             setattr(self.__obj__, key, value)
         except (TypeError, AttributeError, NotImplementedError):
             pass
@@ -228,7 +243,6 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         self.total_rows = None
         self.showndata = None
         self.keys = None
-        self.keystr = None
         self.title = str(title)  # in case title is not a string
         if self.title:
             self.title = self.title + ' - '
@@ -253,13 +267,11 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
         self.showndata = data
 
         self.header0 = _("Index")
-        self.keystr = None
         if self.names:
             self.header0 = _("Name")
         if is_namedtuple(data):
-            self.keystr = dict(enumerate(data._fields))
-            self.keys = list(range(len(self.keystr)))
-            self.title += data.__class__.__name__
+            self.keys = list(data._fields)
+            self._data = self.showndata = ProxyObject(data, self.keys)
             self.header0 = _("Field")
         elif isinstance(data, tuple):
             self.keys = list(range(len(data)))
@@ -282,11 +294,11 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
                 self.header0 = _("Key")
         elif is_dataclass(data):
             self.keys  = list(field.name for field in dataclass_fields(data))
-            self._data = self.showndata = ProxyObject(data)
+            self._data = self.showndata = ProxyObject(data, self.keys)
             self.header0 = _("Field")
         else:
             self.keys = get_object_attrs(data)
-            self._data = data = self.showndata = ProxyObject(data)
+            self._data = data = self.showndata = ProxyObject(data, self.keys)
             if not self.names:
                 self.header0 = _("Attribute")
 
@@ -403,7 +415,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
             and order == Qt.AscendingOrder
             and column != -1
             and self.previous_sort == column
-            and isinstance(self._data, dict)
+            and isinstance(self._data, (dict, ProxyObject))
         ):
             header.setSortIndicator(-1, Qt.AscendingOrder)
             return
@@ -502,8 +514,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
     def get_value(self, index):
         """Return current value"""
         if index.column() == 0:
-            key = self.keys[index.row()]
-            return key if self.keystr is None else self.keystr[key]
+            return self.keys[index.row()]
         elif index.column() == 1:
             return self.types[index.row()]
         elif index.column() == 2:
@@ -1719,8 +1730,8 @@ class CollectionsEditorTableView(BaseTableView):
         self.setup_table()
         self.menu = self.setup_menu()
 
-        # Leave unsorted if dict, sort by column 0 otherwise
-        if isinstance(data, dict):
+        # Leave unsorted if dict or ProxyObject, sort by column 0 otherwise
+        if isinstance(self.source_model.get_data(), (dict, ProxyObject)):
             self.horizontalHeader().setSortIndicator(-1, Qt.AscendingOrder)
         else:
             self.horizontalHeader().setSortIndicator(0, Qt.AscendingOrder)
