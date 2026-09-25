@@ -168,12 +168,12 @@ class ProxyObject(object):
     def __init__(self, obj, visible_keys=None):
         """Constructor."""
         self.__obj__ = obj
-        # Visible keys are those that can be retrieved and/or set.
-        # Store as dict for fast lookup
+        # Visible keys are those that will be visible to the user to be retrieved and/or set.
+        # Store as dict for fast membership testing, and to preserve the order of visible_keys while removing duplicates.
         if visible_keys is None:
-            self.__keys__ = dict((key,None) for key in get_object_attrs(obj))
+            self.__keys__ = dict.fromkeys(get_object_attrs(obj))
         else:
-            self.__keys__ = dict((key,None) for key in visible_keys if hasattr(obj, key))
+            self.__keys__ = dict.fromkeys(key for key in visible_keys if hasattr(obj, key))
 
 
     def __len__(self):
@@ -181,7 +181,7 @@ class ProxyObject(object):
         return len(self.__keys__)
     
     def keys(self):
-        """ Get list of visible attributes. """
+        """ Get visible attributes (keys). """
         return self.__keys__.keys()
 
     def __getitem__(self, key):
