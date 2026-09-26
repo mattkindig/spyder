@@ -165,24 +165,25 @@ def natsort(s):
 class ProxyObject(object):
     """Dictionary proxy to an unknown object."""
 
-    def __init__(self, obj, visible_keys=None):
+    def __init__(self, obj, valid_keys=None):
         """Constructor."""
         self.__obj__ = obj
-        # Visible keys are those that will be visible to the user to be retrieved and/or set.
-        # Store as dict for fast membership testing, and to preserve the order of visible_keys while removing duplicates.
-        if visible_keys is None:
-            self.__keys__ = dict.fromkeys(get_object_attrs(obj))
-        else:
-            self.__keys__ = dict.fromkeys(key for key in visible_keys if hasattr(obj, key))
+        # Valid keys are those that will be visible to the user to be retrieved and/or set.
+        # Store as dict for fast membership testing, and to preserve the order of valid_keys while removing duplicates.
+        self.__validkeys = dict.fromkeys(valid_keys) if valid_keys is not None else None
 
 
     def __len__(self):
-        """Get len according to visible attributes."""
-        return len(self.__keys__)
+        """Get len according to detected attributes."""
+        return len(self.keys())
     
     def keys(self):
-        """ Get visible attributes (keys). """
-        return self.__keys__.keys()
+        """ Get available attributes (keys). """
+        if self.__validkeys is None:
+            return dict.fromkeys(get_object_attrs(self.__obj__)).keys()
+        else:
+            return dict.fromkeys(key for key in self.__validkeys 
+                                 if hasattr(self.__obj__, key))
 
     def __getitem__(self, key):
         """Get the attribute corresponding to the given key."""
@@ -195,7 +196,7 @@ class ProxyObject(object):
         # Catch ValueError to allow viewing and editing of pandas offsets.
         # Fix spyder-ide/spyder#6728-
         try:
-            if key not in self.__keys__:
+            if (self.__validkeys is not None) and (key not in self.keys()):
                 raise AttributeError
             attribute_toreturn = getattr(self.__obj__, key)
         except (NotImplementedError, AttributeError, TypeError, ValueError):
@@ -209,7 +210,7 @@ class ProxyObject(object):
         # Fix spyder-ide/spyder#6728.
         # Also, catch NotImplementedError for safety.
         try:
-            if key not in self.__keys__:
+            if (self.__validkeys is not None) and (key not in self.keys()):
                 raise AttributeError
             setattr(self.__obj__, key, value)
         except (TypeError, AttributeError, NotImplementedError):
@@ -298,7 +299,7 @@ class ReadOnlyCollectionsModel(SpyderFontsMixin, QAbstractTableModel):
             self.header0 = _("Field")
         else:
             self.keys = get_object_attrs(data)
-            self._data = data = self.showndata = ProxyObject(data, self.keys)
+            self._data = data = self.showndata = ProxyObject(data)
             if not self.names:
                 self.header0 = _("Attribute")
 
